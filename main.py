@@ -5,8 +5,10 @@ import cv2 as cv
 import argparse
 from pynput.keyboard import Key, Controller
 
-deltaTolerance = 5
-eyeHeights = []
+centerWidth = 75
+# 320 is center
+leftThreshold = int(320 + (centerWidth/2))
+rightThreshold = int(320 - (centerWidth/2))
 
 cap = cv.VideoCapture(0)
 keyboard = Controller()
@@ -15,23 +17,15 @@ if not cap.isOpened():
   print('Cannot open camera')
   exit()
 
-def checkEyeHeight(leftEye, rightEye):
-  delta = leftEye - rightEye
-  if delta > deltaTolerance:
+def checkForLean(headCenter):
+  if headCenter[0] < rightThreshold:
     # Lean right
-    # keyboard.release('[')
-    # keyboard.press(']')
     return 2
-  elif delta < (deltaTolerance*-1):
+  elif headCenter[0] > leftThreshold:
     # Lean left
-    # keyboard.release(']')
-    # keyboard.press('[')
     return 0
-  # keyboard.release(']')
-  # keyboard.release('[')
+  # No lean
   return 1
-      
-      
 
 # Main frame manipulation function
 def detectLean(frame):
@@ -42,28 +36,25 @@ def detectLean(frame):
   #-- Detect faces
   lean = 'undef'
   faces = face_cascade.detectMultiScale(frame_gray)
+  i = 0
   for (x,y,w,h) in faces:
     center = (x + w//2, y + h//2)
-    frame = cv.ellipse(frame, center, (w//2, h//2), 0, 0, 360, (255, 0, 255), 4)
-    faceROI = frame_gray[y:y+h,x:x+w]
-    #-- In each face, detect eyes
-    eyes = eyes_cascade.detectMultiScale(faceROI)
-    i = 0
-    eyeHeights.clear()
-    for (x2,y2,w2,h2) in eyes:
-      eye_center = (x + x2 + w2//2, y + y2 + h2//2)
-      if i==0 or i==1:
-          eyeHeights.append(eye_center)
-      radius = int(round((w2 + h2)*0.25))
-      frame = cv.circle(frame, eye_center, radius, (255, 0, 0 ), 4)
-      i+=1
-    
-    if len(eyeHeights) == 2:
-      lean = checkEyeHeight(eyeHeights[0][1], eyeHeights[1][1])
-  
-  cv.line(frame,(320,0),(320,500),(255,0,0),2)
-  font = cv.FONT_HERSHEY_SIMPLEX
-  cv.putText(frame,str(lean),(10,450), font, 1,(255,0,0),2,cv.LINE_AA)
+    lean = 1
+    if i == 0 and w > 100:
+      # Check location of head
+      lean = checkForLean(center)
+      font = cv.FONT_HERSHEY_SIMPLEX
+      cv.putText(frame,str(w),(10,450), font, 1,(255,0,0),2,cv.LINE_AA)
+      if lean == 1:
+        cv.ellipse(frame, center, (w//2, h//2), 0, 0, 360, (0, 255, 0), 4)
+      elif lean == 0:
+        cv.ellipse(frame, center, (w//2, h//2), 0, 0, 360, (255, 0, 0), 4)
+      elif lean == 2:
+        cv.ellipse(frame, center, (w//2, h//2), 0, 0, 360, (0, 0, 255), 4)
+    i+=1
+
+  cv.line(frame,(rightThreshold,0),(rightThreshold,500),(255,0,0),1)
+  cv.line(frame,(leftThreshold,0),(leftThreshold,500),(255,0,0),1)
 
   # display the resulting frame
   cv.imshow('frame', frame)
