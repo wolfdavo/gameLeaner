@@ -45,25 +45,26 @@ def handleLeanInput(leanDirection):
     keyboard.release('[')
     keyboard.press(']')
 
-# Main frame manipulation function
+# Main frame analysis function
 def detectLean(frame):
-  # our operation on the frame come here
+  # Split feed into a grayscale copy for ML
   frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
   frame_gray = cv.equalizeHist(frame_gray)
 
-  #-- Detect faces
+  # Detect faces and determine lean
   lean = 'undef'
   faces = face_cascade.detectMultiScale(frame_gray)
   i = 0
   for (x,y,w,h) in faces:
     center = (x + w//2, y + h//2)
     lean = 1
+    # Only look at the first face and make sure it is wider than 100px (filters false positives)
     if i == 0 and w > 100:
-      # Check location of head
+      # Check center location of face
       lean = checkForLean(center)
-      # Input
+      # Handle keyboard input
       handleLeanInput(lean)
-      # Draw circle around my face
+      # Draw circle around face for debugging
       if lean == 1:
         cv.ellipse(frame, center, (w//2, h//2), 0, 0, 360, (0, 255, 0), 4)
       elif lean == 0:
@@ -88,19 +89,19 @@ def detectLean(frame):
 # ML Data setup stuff
 parser = argparse.ArgumentParser(description='Webcam lean detector')
 parser.add_argument('--face_cascade', help='Path to face cascade.', default='./haarcascade_frontalface_alt.xml')
-parser.add_argument('--eyes_cascade', help='Path to eyes cascade.', default='./haarcascade_eye_tree_eyeglasses.xml')
+# parser.add_argument('--eyes_cascade', help='Path to eyes cascade.', default='./haarcascade_eye_tree_eyeglasses.xml')
 parser.add_argument('--camera', help='Camera divide number.', type=int, default=0)
 args = parser.parse_args()
 face_cascade_name = args.face_cascade
-eyes_cascade_name = args.eyes_cascade
+# eyes_cascade_name = args.eyes_cascade
 face_cascade = cv.CascadeClassifier()
-eyes_cascade = cv.CascadeClassifier()
+# eyes_cascade = cv.CascadeClassifier()
 
 #-- 1. Load the cascades
 if not face_cascade.load(cv.samples.findFile(face_cascade_name)):
     print('--(!)Error loading face cascade')
     exit(0)
-if not eyes_cascade.load(cv.samples.findFile(eyes_cascade_name)):
+# if not eyes_cascade.load(cv.samples.findFile(eyes_cascade_name)):
     print('--(!)Error loading eyes cascade')
     exit(0)
 camera_device = args.camera
