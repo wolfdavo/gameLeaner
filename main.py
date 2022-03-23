@@ -10,6 +10,8 @@ centerWidth = 75
 leftThreshold = int(320 + (centerWidth/2))
 rightThreshold = int(320 - (centerWidth/2))
 
+toggleKeyPress = False
+
 cap = cv.VideoCapture(0)
 keyboard = Controller()
 
@@ -27,6 +29,22 @@ def checkForLean(headCenter):
   # No lean
   return 1
 
+def handleLeanInput(leanDirection):
+  if not toggleKeyPress:
+    return
+  if leanDirection == 0:
+    # Lean left
+    keyboard.release(']')
+    keyboard.press('[')
+  if leanDirection == 1:
+    # Stop leaning
+    keyboard.release(']')
+    keyboard.release('[')
+  if leanDirection == 2:
+    # Lean right
+    keyboard.release('[')
+    keyboard.press(']')
+
 # Main frame manipulation function
 def detectLean(frame):
   # our operation on the frame come here
@@ -43,8 +61,9 @@ def detectLean(frame):
     if i == 0 and w > 100:
       # Check location of head
       lean = checkForLean(center)
-      font = cv.FONT_HERSHEY_SIMPLEX
-      cv.putText(frame,str(w),(10,450), font, 1,(255,0,0),2,cv.LINE_AA)
+      # Input
+      handleLeanInput(lean)
+      # Draw circle around my face
       if lean == 1:
         cv.ellipse(frame, center, (w//2, h//2), 0, 0, 360, (0, 255, 0), 4)
       elif lean == 0:
@@ -53,8 +72,15 @@ def detectLean(frame):
         cv.ellipse(frame, center, (w//2, h//2), 0, 0, 360, (0, 0, 255), 4)
     i+=1
 
+  # Draw center lines
   cv.line(frame,(rightThreshold,0),(rightThreshold,500),(255,0,0),1)
   cv.line(frame,(leftThreshold,0),(leftThreshold,500),(255,0,0),1)
+  # Write text showing on/off state
+  font = cv.FONT_HERSHEY_SIMPLEX
+  if toggleKeyPress:
+    cv.putText(frame,'ON (press "=" to turn off key inputs)',(10,450), font, 1,(0,255,0),2,cv.LINE_AA)
+  else:
+    cv.putText(frame,'OFF (press "=" to turn on key inputs)',(10,450), font, 1,(255,0,0),2,cv.LINE_AA)
 
   # display the resulting frame
   cv.imshow('frame', frame)
@@ -79,6 +105,7 @@ if not eyes_cascade.load(cv.samples.findFile(eyes_cascade_name)):
     exit(0)
 camera_device = args.camera
 
+# Main loop
 while True:
   # Capture frame by frame
   ret, frame = cap.read()
@@ -86,8 +113,13 @@ while True:
   if not ret:
     print('Cant recieve frame (stream end?). Exiting ...')
     break
+  # Logic
   detectLean(frame)
-  if cv.waitKey(1) == ord('q'):
+  # Handle key presses
+  keyDown = cv.waitKey(1)
+  if keyDown == ord('='):
+    toggleKeyPress = not toggleKeyPress
+  if keyDown == ord('q'):
     break
 
 # when everything is done release the capture
